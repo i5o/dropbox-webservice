@@ -20,11 +20,20 @@ locking.  The exception is the :class:`DatastoreManager` class; all
 its methods are thread-safe.  Also, static methods are thread-safe.
 """
 
-__all__ = ['DatastoreError', 'DatastoreNotFoundError', 'DatastoreConflictError',
-           'DatastorePermissionError',
-           'DatastoreManager', 'DatastoreInfo', 'Datastore', 'Table', 'Record',
-           'Date', 'Bytes', 'List',
-           ]
+__all__ = [
+    'DatastoreError',
+    'DatastoreNotFoundError',
+    'DatastoreConflictError',
+    'DatastorePermissionError',
+    'DatastoreManager',
+    'DatastoreInfo',
+    'Datastore',
+    'Table',
+    'Record',
+    'Date',
+    'Bytes',
+    'List',
+]
 
 import array
 import base64
@@ -82,7 +91,8 @@ def _dbase64_decode(s):
 
 def _generate_shareable_dsid():
     """Internal helper to generate a random shareable (dsid, key) pair."""
-    # Start with 32 random bytes so the encoded key will be at least 32 characters in length.
+    # Start with 32 random bytes so the encoded key will be at least 32
+    # characters in length.
     bkey = uuid.uuid4().bytes + uuid.uuid4().bytes
     key = _dbase64_encode(bkey)
     # Use the sha256 of the *encoded* key.
@@ -90,7 +100,9 @@ def _generate_shareable_dsid():
     dsid = '.' + _dbase64_encode(keyhash)
     return dsid, key
 
+
 class DatastoreError(Exception):
+
     """Exception raised for datastore-specific error conditions.
 
     This is the base class for more specific exception classes.
@@ -106,6 +118,7 @@ class DatastoreError(Exception):
 
 
 class DatastoreNotFoundError(DatastoreError):
+
     """Exception raised when attempting to open a non-existent datastore.
 
     Derives from :class:`DatastoreError`.
@@ -113,6 +126,7 @@ class DatastoreNotFoundError(DatastoreError):
 
 
 class DatastoreConflictError(DatastoreError):
+
     """Exception raised when the server reports a conflict.
 
     Derives from :class:`DatastoreError`.
@@ -120,6 +134,7 @@ class DatastoreConflictError(DatastoreError):
 
 
 class DatastorePermissionError(DatastoreError):
+
     """Exception raised when the server denies access.
 
     Derives from :class:`DatastoreError`.
@@ -127,6 +142,7 @@ class DatastorePermissionError(DatastoreError):
 
 
 class _DatastoreOperations(object):
+
     """Low-level datastore operations.
 
     The methods here map 1:1 to endpoints in the HTTP API.
@@ -164,19 +180,25 @@ class _DatastoreOperations(object):
     def _check_rev(self, resp):
         resp = self._check_access_errors(resp)
         if 'rev' not in resp:
-            raise DatastoreError('rev missing from response: %r' % (resp,), resp)
+            raise DatastoreError(
+                'rev missing from response: %r' %
+                (resp,), resp)
         return resp
 
     def _check_handle(self, resp):
         resp = self._check_rev(resp)
         if 'handle' not in resp:
-            raise DatastoreError('handle missing from response: %r' % (resp,), resp)
+            raise DatastoreError(
+                'handle missing from response: %r' %
+                (resp,), resp)
         return resp
 
     def _check_ok(self, resp):
         resp = self._check_access_errors(resp)
         if 'ok' not in resp:
-            raise DatastoreError('ok missing from response: %r' % (resp,), resp)
+            raise DatastoreError(
+                'ok missing from response: %r' %
+                (resp,), resp)
         return resp
 
     def _check_conflict(self, resp):
@@ -187,44 +209,51 @@ class _DatastoreOperations(object):
 
     def _check_list_datastores(self, resp):
         if 'datastores' not in resp or 'token' not in resp:
-            raise DatastoreError('token or datastores missing from response: %r' % (resp,),
-                                 resp)
+            raise DatastoreError(
+                'token or datastores missing from response: %r' %
+                (resp,), resp)
         return resp
 
     def _check_get_snapshot(self, resp):
         resp = self._check_rev(resp)
         if 'rows' not in resp:
-            raise DatastoreError('rows missing from response: %r' % (resp,), resp)
+            raise DatastoreError(
+                'rows missing from response: %r' %
+                (resp,), resp)
         return resp
 
     def _check_await(self, resp):
-        # Nothing to do here -- it may or may not have keys 'list_datastores' and 'get_deltas'.
+        # Nothing to do here -- it may or may not have keys 'list_datastores'
+        # and 'get_deltas'.
         return resp
 
     def _check_get_deltas(self, resp):
         resp = self._check_access_errors(resp)
         # If there are no new deltas the response is empty.
         if resp and 'deltas' not in resp:
-            raise DatastoreError('deltas missing from response: %r' % (resp,), resp)
+            raise DatastoreError(
+                'deltas missing from response: %r' %
+                (resp,), resp)
         return resp
 
     def get_datastore(self, dsid):
-        url, params, headers = self._client.request('/datastores/get_datastore',
-                                                    {'dsid': dsid}, method='GET')
+        url, params, headers = self._client.request(
+            '/datastores/get_datastore', {'dsid': dsid}, method='GET')
         resp = self._client.rest_client.GET(url, headers)
         return self._check_handle(resp)
 
     def get_or_create_datastore(self, dsid):
-        url, params, headers = self._client.request('/datastores/get_or_create_datastore',
-                                                    {'dsid': dsid})
+        url, params, headers = self._client.request(
+            '/datastores/get_or_create_datastore', {'dsid': dsid})
         resp = self._client.rest_client.POST(url, params, headers)
         return self._check_handle(resp)
 
     def create_datastore(self):
-        # NOTE: This generates a dsid locally and adds it to the returned response.
+        # NOTE: This generates a dsid locally and adds it to the returned
+        # response.
         dsid, key = _generate_shareable_dsid()
-        url, params, headers = self._client.request('/datastores/create_datastore',
-                                                    {'dsid': dsid, 'key': key})
+        url, params, headers = self._client.request(
+            '/datastores/create_datastore', {'dsid': dsid, 'key': key})
         resp = self._client.rest_client.POST(url, params, headers)
         resp = self._check_handle(resp)
         if 'dsid' not in resp:
@@ -232,26 +261,26 @@ class _DatastoreOperations(object):
         return resp
 
     def delete_datastore(self, handle):
-        url, params, headers = self._client.request('/datastores/delete_datastore',
-                                                    {'handle': handle})
+        url, params, headers = self._client.request(
+            '/datastores/delete_datastore', {'handle': handle})
         resp = self._client.rest_client.POST(url, params, headers)
         return self._check_ok(resp)
 
     def list_datastores(self):
-        url, params, headers = self._client.request('/datastores/list_datastores', method='GET')
+        url, params, headers = self._client.request(
+            '/datastores/list_datastores', method='GET')
         resp = self._client.rest_client.GET(url, headers)
         return self._check_list_datastores(resp)
 
     def get_snapshot(self, handle):
-        url, params, headers = self._client.request('/datastores/get_snapshot',
-                                                    {'handle': handle}, method='GET')
+        url, params, headers = self._client.request(
+            '/datastores/get_snapshot', {'handle': handle}, method='GET')
         resp = self._client.rest_client.GET(url, headers)
         return self._check_get_snapshot(resp)
 
     def get_deltas(self, handle, rev):
-        url, params, headers = self._client.request('/datastores/get_deltas',
-                                                    {'handle': handle, 'rev': rev},
-                                                    method='GET')
+        url, params, headers = self._client.request(
+            '/datastores/get_deltas', {'handle': handle, 'rev': rev}, method='GET')
         resp = self._client.rest_client.GET(url, headers)
         return self._check_get_deltas(resp)
 
@@ -262,7 +291,8 @@ class _DatastoreOperations(object):
                 }
         if nonce:
             args['nonce'] = nonce
-        url, params, headers = self._client.request('/datastores/put_delta', args)
+        url, params, headers = self._client.request(
+            '/datastores/put_delta', args)
         resp = self._client.rest_client.POST(url, params, headers)
         return self._check_conflict(resp)
 
@@ -272,14 +302,17 @@ class _DatastoreOperations(object):
             params['list_datastores'] = json.dumps({'token': token})
         if cursors:
             params['get_deltas'] = json.dumps({'cursors': cursors})
-        url, params, headers = self._client.request('/datastores/await', params, method='POST')
+        url, params, headers = self._client.request(
+            '/datastores/await', params, method='POST')
         resp = self._client.rest_client.POST(url, params, headers)
         return self._check_await(resp)
 
     def get_client(self):
         return self._client
 
+
 class DatastoreManager(object):
+
     """A manager for datastores.
 
     In order to work with datastores you must first create an instance
@@ -304,7 +337,8 @@ class DatastoreManager(object):
         self._dsops = _DatastoreOperations(client)
 
     def __repr__(self):
-        return '%s(%r)' % (self.__class__.__name__, self._dsops._client if self._dsops else None)
+        return '%s(%r)' % (self.__class__.__name__,
+                           self._dsops._client if self._dsops else None)
 
     def close(self):
         # This doesn't do anything to the _DatastoreOperations object.
@@ -378,10 +412,15 @@ class DatastoreManager(object):
         else:
             if not isinstance(role, basestring):
                 raise TypeError('Role must be a string: %r' % (role,))
-            if role not in (Datastore.OWNER, Datastore.EDITOR, Datastore.VIEWER):
+            if role not in (
+                    Datastore.OWNER,
+                    Datastore.EDITOR,
+                    Datastore.VIEWER):
                 raise ValueError('invalid role (%r)' % (role,))
             if not id.startswith('.') and role != Datastore.OWNER:
-                raise ValueError('private datastore role must be owner: %r' % (role,))
+                raise ValueError(
+                    'private datastore role must be owner: %r' %
+                    (role,))
         return Datastore(self, id=id, handle=handle, role=role)
 
     def delete_datastore(self, id):
@@ -554,10 +593,15 @@ class DatastoreManager(object):
         return cursor_map
 
 
-DatastoreInfo = collections.namedtuple('DatastoreInfo', 'id handle rev title mtime effective_role')
+DatastoreInfo = collections.namedtuple(
+    'DatastoreInfo',
+    'id handle rev title mtime effective_role')
 
 # Dummy class for docstrings, see doco.py.
+
+
 class _DatastoreInfo__doc__(object):
+
     """A read-only record of information about a :class:`Datastore`.
 
     Instances of this class are returned by
@@ -621,10 +665,12 @@ def _parse_role(role, owner_ok=False):
 _DBASE64_VALID_CHARS = '-_A-Za-z0-9'
 _VALID_PRIVATE_DSID_RE = r'[a-z0-9_-]([a-z0-9._-]{0,62}[a-z0-9_-])?'
 _VALID_SHAREABLE_DSID_RE = r'\.[%s]{1,63}' % _DBASE64_VALID_CHARS
-_VALID_DSID_RE = r'\A(%s|%s)\Z' % (_VALID_PRIVATE_DSID_RE, _VALID_SHAREABLE_DSID_RE)
+_VALID_DSID_RE = r'\A(%s|%s)\Z' % (
+    _VALID_PRIVATE_DSID_RE, _VALID_SHAREABLE_DSID_RE)
 
 
 class Principal(object):
+
     """A principal used in the access control list (ACL).
 
     Currently the only valid principals are the predefined objects
@@ -654,6 +700,7 @@ class Principal(object):
 
 
 class User(Principal):
+
     """A user is identified by a numeric user ID (uid).
 
     The uid may be either an integer or a string of digits.
@@ -665,7 +712,9 @@ class User(Principal):
         if not str(uid).isdigit():
             raise ValueError('Invalid uid: %r' % (uid,))
         if str(int(uid)) != str(uid):
-            raise ValueError('Leading zeros or sign not allowed in uid: %r' % (uid,))
+            raise ValueError(
+                'Leading zeros or sign not allowed in uid: %r' %
+                (uid,))
         if int(uid) <= 0:
             raise ValueError('Zero or negative uid not allowed: %r' % (uid,))
         super(User, self).__init__('u%s' % uid)
@@ -675,6 +724,7 @@ class User(Principal):
 
 
 class TeamPrincipal(Principal):
+
     """:const:`Datastore.TEAM` is a special principal to set team permissions.
 
     Don't instantiate this class, use the predefined :const:`Datastore.TEAM` variable.
@@ -688,6 +738,7 @@ class TeamPrincipal(Principal):
 
 
 class PublicPrincipal(Principal):
+
     """:const:`Datastore.PUBLIC` is a special principal to set public permissions.
 
     Don't instantiate this class, use the predefined :const:`Datastore.PUBLIC` variable.
@@ -701,6 +752,7 @@ class PublicPrincipal(Principal):
 
 
 class Datastore(object):
+
     """An object representing a datastore.
 
     A datastore holds a set of tables identified by table IDs, each of
@@ -727,12 +779,14 @@ class Datastore(object):
     :class:`DatastoreManager` instead.
     """
 
-    DATASTORE_SIZE_LIMIT = 10 * 1024 * 1024  #: Datastore size limit placeholder for sphinx.
+    #: Datastore size limit placeholder for sphinx.
+    DATASTORE_SIZE_LIMIT = 10 * 1024 * 1024
     _DATASTORE_SIZE_LIMIT__doc__ = """
         The maximum size in bytes of a datastore.
         """
 
-    PENDING_CHANGES_SIZE_LIMIT = 2 * 1024 * 1024  #: Delta size limit placeholder for sphinx.
+    #: Delta size limit placeholder for sphinx.
+    PENDING_CHANGES_SIZE_LIMIT = 2 * 1024 * 1024
     _PENDING_CHANGES_SIZE_LIMIT__doc__ = """
         The maximum size in bytes of changes that can be queued up between calls to
         :meth:`commit()`.
@@ -801,7 +855,8 @@ class Datastore(object):
         if role is not None:
             # Should've been caught earlier.
             assert isinstance(role, str), repr(role)
-            assert role in (Datastore.OWNER, Datastore.EDITOR, Datastore.VIEWER), repr(role)
+            assert role in (
+                Datastore.OWNER, Datastore.EDITOR, Datastore.VIEWER), repr(role)
         self._manager = manager
         self._id = id
         self._handle = handle
@@ -814,16 +869,19 @@ class Datastore(object):
         self._pending_changes_size = 0
 
     def __repr__(self):
-        return 'Datastore(<rev=%d>, id=%r, handle=%r, role=%r)' % (self._rev, self._id,
-                                                                   self._handle, self._role)
+        return 'Datastore(<rev=%d>, id=%r, handle=%r, role=%r)' % (
+            self._rev, self._id, self._handle, self._role)
 
     def _check_edit_permission(self):
-        if self.is_shareable() and self._role not in (Datastore.OWNER, Datastore.EDITOR):
+        if self.is_shareable() and self._role not in (
+                Datastore.OWNER,
+                Datastore.EDITOR):
             raise DatastorePermissionError('This datastore is read-only')
 
     def _check_shareable(self):
         if not self.is_shareable():
-            raise DatastoreError('Access control is only supported for shareable datastores')
+            raise DatastoreError(
+                'Access control is only supported for shareable datastores')
 
     def _check_principal(self, principal):
         if not isinstance(principal, Principal):
@@ -927,7 +985,9 @@ class Datastore(object):
         the server.
         """
         if title is not None and not isinstance(title, basestring):
-            raise TypeError('Title must be a string, not %s' % type(title).__name__)
+            raise TypeError(
+                'Title must be a string, not %s' %
+                type(title).__name__)
         self._set_info_field('title', title)
 
     def _set_mtime(self):
@@ -1106,9 +1166,13 @@ class Datastore(object):
         for row in snapshot:
             tid = row['tid']
             recordid = row['rowid']
-            data = dict((field, _value_from_json(v)) for field, v in row['data'].items())
+            data = dict((field, _value_from_json(v))
+                        for field, v in row['data'].items())
             table = self.get_table(tid)
-            table._update_record_fields(recordid, data, _compute_record_size_for_fields(data))
+            table._update_record_fields(
+                recordid,
+                data,
+                _compute_record_size_for_fields(data))
         self._rev = rev
 
     def get_snapshot(self):
@@ -1131,7 +1195,8 @@ class Datastore(object):
                 data = {}
                 for field, value in fields.items():
                     data[field] = _value_to_json(value)
-                snapshot.append({'tid': table_id, 'rowid': record_id, 'data': data})
+                snapshot.append(
+                    {'tid': table_id, 'rowid': record_id, 'data': data})
         return snapshot
 
     def await_deltas(self):
@@ -1145,7 +1210,8 @@ class Datastore(object):
             see :meth:`apply_deltas()`.
         """
         if self._changes:
-            raise DatastoreError('Cannot call await_deltas() with pending changes')
+            raise DatastoreError(
+                'Cannot call await_deltas() with pending changes')
         resp = self._manager._dsops.await(cursors={self._handle: self._rev})
         if 'get_deltas' not in resp:
             return {}
@@ -1176,7 +1242,8 @@ class Datastore(object):
             see :meth:`apply_deltas()`.
         """
         if self._changes:
-            raise DatastoreError('Cannot call load_deltas() with pending changes')
+            raise DatastoreError(
+                'Cannot call load_deltas() with pending changes')
         deltas = self.fetch_deltas()
         return self.apply_deltas(deltas)
 
@@ -1214,23 +1281,25 @@ class Datastore(object):
             by the loaded deltas.
         """
         if self._changes:
-            raise DatastoreError('Cannot call apply_deltas() with pending changes')
+            raise DatastoreError(
+                'Cannot call apply_deltas() with pending changes')
         if deltas is None:
             return {}
         raw_changed_records = set()  # Set of (tid, recordid) tuples.
         for delta in deltas:
             rev = delta['rev']
             changes = delta['changes']
-            if rev  < self._rev:
+            if rev < self._rev:
                 continue  # We've already seen this revision, or it is ours.
             if rev != self._rev:
                 # Either the server sent us bad data or our state is mixed up.
-                raise DatastoreError('Revision out of sequence (expected %d, actual %d)' %
-                                     (self._rev, rev))
+                raise DatastoreError(
+                    'Revision out of sequence (expected %d, actual %d)' %
+                    (self._rev, rev))
             for c in changes:
-               ch = _Change.from_json(c)
-               tid, recordid = self._apply_change(ch)
-               raw_changed_records.add((tid, recordid))
+                ch = _Change.from_json(c)
+                tid, recordid = self._apply_change(ch)
+                raw_changed_records.add((tid, recordid))
             self._rev = rev + 1
         changed_records = {}  # Map of tid to set of Record objects.
         for tid, recordid in raw_changed_records:
@@ -1299,7 +1368,11 @@ class Datastore(object):
         self._set_mtime()
         changes = [ch.to_json() for ch in self._changes]
         nonce = _new_uuid()
-        resp = self._manager._dsops.put_delta(self._handle, self._rev, changes, nonce)
+        resp = self._manager._dsops.put_delta(
+            self._handle,
+            self._rev,
+            changes,
+            nonce)
         self._rev = resp['rev']
         self._changes = []
 
@@ -1381,9 +1454,12 @@ class Datastore(object):
                 return rv
         # We ran out of tries.  But we've loaded new deltas.
         if max_tries == 1:
-            raise DatastoreError('Failed to commit; set max_tries to a value > 1 to retry')
+            raise DatastoreError(
+                'Failed to commit; set max_tries to a value > 1 to retry')
         else:
-            raise DatastoreError('Failed to commit %d times in a row' % (max_tries,))
+            raise DatastoreError(
+                'Failed to commit %d times in a row' %
+                (max_tries,))
 
     # NOTE: The asserts below can only fire if the server sends bogus data.
 
@@ -1395,11 +1471,14 @@ class Datastore(object):
         table = self.get_table(tid)
         if op == INSERT:
             assert recordid not in table._records, repr((tid, recordid))
-            table._update_record_fields(recordid, data, _compute_record_size_for_fields(data))
+            table._update_record_fields(
+                recordid,
+                data,
+                _compute_record_size_for_fields(data))
         elif op == DELETE:
             old_fields = table._records.get(recordid)
-            table._update_record_fields(recordid, None,
-                                        -_compute_record_size_for_fields(old_fields))
+            table._update_record_fields(
+                recordid, None, -_compute_record_size_for_fields(old_fields))
             change.undo = dict(old_fields)
         elif op == UPDATE:
             fields = dict(table._records[recordid])
@@ -1439,13 +1518,13 @@ class Datastore(object):
         assert isinstance(oldval, tuple), repr(oldval)
         if op == ListPut:
             index, newval = val[1:]
-            return oldval[:index] + (newval,) + oldval[index+1:]
+            return oldval[:index] + (newval,) + oldval[index + 1:]
         if op == ListInsert:
             index, newval = val[1:]
             return oldval[:index] + (newval,) + oldval[index:]
         if op == ListDelete:
             index = val[1]
-            return oldval[:index] + oldval[index+1:]
+            return oldval[:index] + oldval[index + 1:]
         if op == ListMove:
             return _list_move(oldval, *val[1:])
         assert False, repr(val)  # pragma: no cover
@@ -1466,6 +1545,7 @@ _VALID_ID_RE = r'([a-zA-Z0-9_\-/.+=]{1,64}|:[a-zA-Z0-9_\-/.+=]{1,63})\Z'
 
 
 class Table(object):
+
     """An object representing a table in a datastore.
 
     You need a ``Table`` in order to query or modify the content of the datastore.
@@ -1479,7 +1559,7 @@ class Table(object):
         self._datastore = datastore
         self._tid = tid
         self._records = {}  # Map {recordid: fields}
-        self._record_sizes = {} # Map {recordid: int size}
+        self._record_sizes = {}  # Map {recordid: int size}
 
     def __repr__(self):
         return 'Table(<%s>, %r)' % (self._datastore._id, self._tid)
@@ -1541,12 +1621,23 @@ class Table(object):
             if not Record.is_valid_field(field):
                 raise ValueError('Invalid field name %r' % (field,))
             if value is None:
-                raise TypeError('Cannot set field %r to None in insert' % (field,))
+                raise TypeError(
+                    'Cannot set field %r to None in insert' %
+                    (field,))
             value = _typecheck_value(value, field)
             value_size += _compute_field_size(value)
             fields[field] = value
-        self._datastore._add_pending_change(_Change(INSERT, self._tid, recordid, dict(fields)))
-        self._update_record_fields(recordid, fields, Record.BASE_RECORD_SIZE + value_size)
+        self._datastore._add_pending_change(
+            _Change(
+                INSERT,
+                self._tid,
+                recordid,
+                dict(fields)))
+        self._update_record_fields(
+            recordid,
+            fields,
+            Record.BASE_RECORD_SIZE +
+            value_size)
         return Record(self, recordid)
 
     def query(self, **kwds):
@@ -1596,7 +1687,9 @@ class Table(object):
                 # fails unless both types are numeric.
                 trfv = type(rfv)
                 tv = type(value)
-                if trfv is not tv and not set((trfv, tv)) <= set((int, long, float)):
+                if trfv is not tv and not set(
+                        (trfv, tv)) <= set(
+                        (int, long, float)):
                     break
             else:
                 results.add(Record(self, recordid))
@@ -1611,8 +1704,8 @@ class Table(object):
         curr_size = self._get_record_size(recordid)
         is_new_record = (curr_size == 0)
         curr_size += change_in_size
-        assert curr_size >= 0, 'Invalid size %d for table %s, record %s' % (curr_size, self._tid,
-                                                                            recordid)
+        assert curr_size >= 0, 'Invalid size %d for table %s, record %s' % (
+            curr_size, self._tid, recordid)
         assert (self._datastore._size + change_in_size >=
                 Datastore.BASE_DATASTORE_SIZE), 'Invalid datastore size %d' % (self._size,)
         if curr_size:
@@ -1633,13 +1726,14 @@ class Table(object):
             # The values in this cache are maintained through _update_record_fields.  There is no
             # case in which a record with fields exists without having its size set properly in
             # the cache.
-            assert fields is None, 'Record %r exists %r but has no cached size' % (recordid,
-                                                                                   fields)
+            assert fields is None, 'Record %r exists %r but has no cached size' % (
+                recordid, fields)
             record_size = 0
         return record_size
 
 
 class Record(object):
+
     """An object representing a record in a table in a datastore.
 
     A record has a record ID and zero or more fields.  A record
@@ -1660,7 +1754,8 @@ class Record(object):
     :meth:`Table.get_or_insert()` or :meth:`Table.query()` instead.
     """
 
-    RECORD_SIZE_LIMIT = 100 * 1024  #: Record size limit placeholder for sphinx.
+    #: Record size limit placeholder for sphinx.
+    RECORD_SIZE_LIMIT = 100 * 1024
     _RECORD_SIZE_LIMIT__doc__ = """
         The maximum size in bytes of a record.
         """
@@ -1692,9 +1787,11 @@ class Record(object):
     def __repr__(self):
         fields = self._table._records.get(self._recordid)
         if fields is None:
-            return 'Record(<%s>, %r, <deleted>)' % (self._table._tid, self._recordid)
+            return 'Record(<%s>, %r, <deleted>)' % (
+                self._table._tid, self._recordid)
         else:
-            return 'Record(<%s>, %r, %r)' % (self._table._tid, self._recordid, fields)
+            return 'Record(<%s>, %r, %r)' % (
+                self._table._tid, self._recordid, fields)
 
     def __eq__(self, other):
         if not isinstance(other, Record):
@@ -1828,9 +1925,18 @@ class Record(object):
                 new_size += _compute_field_size(value)
                 data[field] = [ValuePut, value]
         if data:
-            change = _Change(UPDATE, self._table._tid, self._recordid, data=data, undo=undo)
+            change = _Change(
+                UPDATE,
+                self._table._tid,
+                self._recordid,
+                data=data,
+                undo=undo)
             self._table._datastore._add_pending_change(change)
-            self._table._update_record_fields(self._recordid, fields, new_size - old_size)
+            self._table._update_record_fields(
+                self._recordid,
+                fields,
+                new_size -
+                old_size)
 
     def delete_record(self):
         """Delete the record from the table.
@@ -1845,9 +1951,15 @@ class Record(object):
         fields = self._table._records.get(self._recordid)
         if fields is None:
             return
-        change = _Change(DELETE, self._table._tid, self._recordid, data=None, undo=fields)
+        change = _Change(
+            DELETE,
+            self._table._tid,
+            self._recordid,
+            data=None,
+            undo=fields)
         self._table._datastore._add_pending_change(change)
-        self._table._update_record_fields(self._recordid, None, -self.get_size())
+        self._table._update_record_fields(
+            self._recordid, None, -self.get_size())
 
     def get_or_create_list(self, field):
         """Get a list field, possibly setting it to an empty list.
@@ -1863,18 +1975,28 @@ class Record(object):
         if isinstance(v, tuple):
             return List(self, field)
         if v is not None:
-            raise TypeError('Field %r already exists but is a %s instead of a list' %
-                            (field, type(v).__name__))
+            raise TypeError(
+                'Field %r already exists but is a %s instead of a list' %
+                (field, type(v).__name__))
         if not Record.is_valid_field(field):
             raise ValueError('Invalid field name %r' % (field,))
         self._datastore._check_edit_permission()
         # Produce a ListCreate op.
         data = {field: _make_list_create()}
-        change = _Change(UPDATE, self._table._tid, self._recordid, data=data, undo={field: None})
+        change = _Change(
+            UPDATE,
+            self._table._tid,
+            self._recordid,
+            data=data,
+            undo={
+                field: None})
         self._table._datastore._add_pending_change(change)
         fields = dict(fields)
         fields[field] = ()
-        self._table._update_record_fields(self._recordid, fields, self.BASE_FIELD_SIZE)
+        self._table._update_record_fields(
+            self._recordid,
+            fields,
+            self.BASE_FIELD_SIZE)
         return List(self, field)
 
     def has(self, field):
@@ -1897,6 +2019,7 @@ class Record(object):
 
 
 class Date(object):
+
     """A simple immutable object representing a timestamp.
 
     Datastores store timestamps as milliseconds since the Epoch
@@ -1935,9 +2058,10 @@ class Date(object):
             timestamp = time.time()
         else:
             if not isinstance(timestamp, (float, int, long)):
-                raise TypeError('Timestamp must be a float or integer, not %s' %
-                                type(timestamp).__name__)
-        self._timestamp = int(timestamp*1000.0) / 1000.0
+                raise TypeError(
+                    'Timestamp must be a float or integer, not %s' %
+                    type(timestamp).__name__)
+        self._timestamp = int(timestamp * 1000.0) / 1000.0
 
     def __repr__(self):
         dt = datetime.datetime.utcfromtimestamp(int(self._timestamp))
@@ -1999,7 +2123,13 @@ class Date(object):
         if dt.tzinfo is not None:
             raise TypeError('The argument datetime must not have a timezone')
         delta = dt - datetime.datetime.utcfromtimestamp(0)
-        return cls(delta.days * 24*3600 + delta.seconds + delta.microseconds * 0.000001)
+        return cls(
+            delta.days *
+            24 *
+            3600 +
+            delta.seconds +
+            delta.microseconds *
+            0.000001)
 
     def to_datetime_local(self):
         """Convert a ``Date`` to a ``datetime.datetime`` object in local time.
@@ -2036,6 +2166,7 @@ class Date(object):
 
 
 class Bytes(object):
+
     """A simple immutable object representing a binary string.
 
     Datastores transmit binary strings using a base64 encoding.
@@ -2056,11 +2187,21 @@ class Bytes(object):
 
     def __init__(self, blob):
         """Construct a Bytes from an 8-bit string."""
-        if not (isinstance(blob, (bytes, bytearray, buffer)) or
-                isinstance(blob, array.array) and blob.typecode in ('c', 'b', 'B')):
+        if not (
+            isinstance(
+                blob,
+                (bytes,
+                 bytearray,
+                 buffer)) or isinstance(
+                blob,
+                array.array) and blob.typecode in (
+                'c',
+                'b',
+                'B')):
             raise TypeError('Bytes must be a bytes-compatible type, not %s' %
                             type(blob).__name__)
-        self._bytes = bytes(blob)  # Make a copy in case the argument is mutable.
+        # Make a copy in case the argument is mutable.
+        self._bytes = bytes(blob)
 
     def __repr__(self):
         return 'Bytes(%r)' % self._bytes
@@ -2143,6 +2284,7 @@ class Bytes(object):
 
 
 class List(collections.MutableSequence):
+
     """A wrapper for a list value.
 
     When a field contains a list value, retrieving the field using
@@ -2257,7 +2399,7 @@ class List(collections.MutableSequence):
             index += len(v)
         if not 0 <= index < len(v):
             raise IndexError
-        v = v[:index] + (value,) + v[index+1:]
+        v = v[:index] + (value,) + v[index + 1:]
         self._update(v, _make_list_put(index, value))
 
     def __delitem__(self, index):
@@ -2268,7 +2410,7 @@ class List(collections.MutableSequence):
             index += len(v)
         if not 0 <= index < len(v):
             raise IndexError
-        v = v[:index] + v[index+1:]
+        v = v[:index] + v[index + 1:]
         self._update(v, _make_list_delete(index))
 
     def insert(self, index, value):
@@ -2325,8 +2467,11 @@ class List(collections.MutableSequence):
         table._datastore._add_pending_change(change)
         fields = dict(fields)
         fields[field] = v
-        table._update_record_fields(recordid, fields,
-                                    _compute_value_size(v) - _compute_value_size(old_v))
+        table._update_record_fields(
+            recordid,
+            fields,
+            _compute_value_size(v) -
+            _compute_value_size(old_v))
 
 
 VALID_ATOM_TYPES = frozenset([
@@ -2337,7 +2482,7 @@ VALID_ATOM_TYPES = frozenset([
     Date,
     Bytes,
     List,
-    ] + ([bytes] if PY3 else [long, unicode]))
+] + ([bytes] if PY3 else [long, unicode]))
 
 
 def _typecheck_value(value, field):
@@ -2368,7 +2513,8 @@ def _typecheck_atom(value, field, is_list=False):
 
 def _compute_record_size_for_fields(fields):
     """Compute the size in bytes of a record containing the given fields."""
-    return Record.BASE_RECORD_SIZE + sum(map(_compute_field_size, fields.itervalues()))
+    return Record.BASE_RECORD_SIZE + \
+        sum(map(_compute_field_size, fields.itervalues()))
 
 
 def _compute_field_size(value):
@@ -2397,7 +2543,8 @@ def _compute_value_size(value):
 
 
 def _compute_list_size(value):
-    return (len(value) * List.BASE_ITEM_SIZE) + sum(map(_compute_atom_size, value))
+    return (len(value) * List.BASE_ITEM_SIZE) + \
+        sum(map(_compute_atom_size, value))
 
 
 def _compute_atom_size(value):
@@ -2417,11 +2564,13 @@ def _compute_atom_size(value):
             return len(value)
     if isinstance(value, Bytes):
         return len(value)
-    assert False, 'Type %r is not a valid atom (value: %r)' % (type(value), value)
+    assert False, 'Type %r is not a valid atom (value: %r)' % (
+        type(value), value)
 
 
 # Change ops.
 INSERT, UPDATE, DELETE = 'I', 'U', 'D'
+
 
 class _Change(object):
 
@@ -2491,7 +2640,8 @@ class _Change(object):
             for name, op in self.data.items():
                 assert _is_op(op), repr((name, op))
                 if _is_listop(op):
-                    newdata[name], newundo[name] = self._invert_listop(name, op)
+                    newdata[name], newundo[
+                        name] = self._invert_listop(name, op)
                 else:
                     # Before and after are from op's POV.
                     before = self.undo.get(name)
@@ -2528,7 +2678,7 @@ class _Change(object):
         if opid == ListPut:
             assert 0 <= index < len(before), repr((name, index, len(before)))
             opvalue = op[2]
-            after = before[:index] + (opvalue,) + before[index+1:]
+            after = before[:index] + (opvalue,) + before[index + 1:]
             invop = _make_list_put(index, before[index])
         elif opid == ListInsert:
             assert 0 <= index <= len(before), repr((name, index, len(before)))
@@ -2537,12 +2687,13 @@ class _Change(object):
             invop = _make_list_delete(index)
         elif opid == ListDelete:
             assert 0 <= index < len(before), repr((name, index, len(before)))
-            after = before[:index] + before[index+1:]
+            after = before[:index] + before[index + 1:]
             invop = _make_list_insert(index, before[index])
         elif opid == ListMove:
             assert 0 <= index < len(before), repr((name, index, len(before)))
             newindex = op[2]
-            assert 0 <= newindex < len(before), repr((name, index, len(before)))
+            assert 0 <= newindex < len(before), repr(
+                (name, index, len(before)))
             after = _list_move(before, index, newindex)
             invop = _make_list_move(newindex, index)
         else:
@@ -2555,10 +2706,12 @@ class _Change(object):
         op, tid, recordid = val[:3]
         if op == INSERT:
             assert len(val) == 4, repr(val)
-            data = dict((field, _value_from_json(v)) for field, v in val[3].items())
+            data = dict((field, _value_from_json(v))
+                        for field, v in val[3].items())
         elif op == UPDATE:
             assert len(val) == 4, repr(val)
-            data = dict((field, _op_from_json(v)) for field, v in val[3].items())
+            data = dict((field, _op_from_json(v))
+                        for field, v in val[3].items())
         elif op == DELETE:
             assert len(val) == 3, repr(val)
             data = None
@@ -2611,7 +2764,8 @@ NAN_VALUE = INF_VALUE / INF_VALUE
 
 
 def _new_uuid():
-    return base64.urlsafe_b64encode(uuid.uuid4().bytes).decode('ascii').rstrip('=')
+    return base64.urlsafe_b64encode(
+        uuid.uuid4().bytes).decode('ascii').rstrip('=')
 
 
 def _value_from_json(v):
@@ -2696,11 +2850,11 @@ def _is_listop(val):
 
 def _list_move(old, index, newindex):
     if index <= newindex:
-        return (old[:index] + old[index+1:newindex+1] +
-                old[index:index+1] + old[newindex+1:])
+        return (old[:index] + old[index + 1:newindex + 1] +
+                old[index:index + 1] + old[newindex + 1:])
     else:
-        return(old[:newindex] + old[index:index+1] +
-               old[newindex:index] + old[index+1:])
+        return(old[:newindex] + old[index:index + 1] +
+               old[newindex:index] + old[index + 1:])
 
 
 def _make_list_create():

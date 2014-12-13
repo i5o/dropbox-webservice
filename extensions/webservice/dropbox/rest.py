@@ -16,17 +16,20 @@ except ImportError:
     import simplejson as json
 
 try:
-   import urllib3
+    import urllib3
 except ImportError:
     raise ImportError('Dropbox python client requires urllib3.')
 
 
 SDK_VERSION = "2.2.0"
 
-TRUSTED_CERT_FILE = pkg_resources.resource_filename(__name__, 'trusted-certs.crt')
+TRUSTED_CERT_FILE = pkg_resources.resource_filename(
+    __name__,
+    'trusted-certs.crt')
 
 
 class RESTResponse(io.IOBase):
+
     """
     Responses to requests can come in the form of ``RESTResponse``. These are
     thin wrappers around the socket file descriptor.
@@ -79,7 +82,7 @@ class RESTResponse(io.IOBase):
             raise ValueError('Response already closed')
         return self.urllib3_response.read(amt)
 
-    BLOCKSIZE = 4 * 1024 * 1024 # 4MB at a time just because
+    BLOCKSIZE = 4 * 1024 * 1024  # 4MB at a time just because
 
     def close(self):
         """Closes the underlying socket."""
@@ -101,7 +104,6 @@ class RESTResponse(io.IOBase):
     def closed(self):
         return self.is_closed
 
-
     # ---------------------------------
     # Backwards compat for HTTPResponse
     # ---------------------------------
@@ -117,12 +119,15 @@ class RESTResponse(io.IOBase):
     try:
         urllib3.HTTPResponse.flush
         urllib3.HTTPResponse.fileno
+
         def fileno(self):
             return self.urllib3_response.fileno()
+
         def flush(self):
             return self.urllib3_response.flush()
     except AttributeError:
         pass
+
 
 def create_connection(address):
     host, port = address
@@ -145,6 +150,7 @@ def create_connection(address):
     else:
         raise socket.error("getaddrinfo returns an empty list")
 
+
 def json_loadb(data):
     if sys.version_info >= (3,):
         data = data.decode('utf8')
@@ -152,6 +158,7 @@ def json_loadb(data):
 
 
 class RESTClientObject(object):
+
     def __init__(self, max_reusable_connections=8, mock_urlopen=None):
         """
         Parameters
@@ -173,16 +180,25 @@ class RESTClientObject(object):
         """
         self.mock_urlopen = mock_urlopen
         self.pool_manager = urllib3.PoolManager(
-            num_pools=4, # only a handful of hosts. api.dropbox.com, api-content.dropbox.com
+            num_pools=4,
+            # only a handful of hosts. api.dropbox.com, api-content.dropbox.com
             maxsize=max_reusable_connections,
             block=False,
-            timeout=60.0, # long enough so datastores await doesn't get interrupted
+            timeout=60.0,
+            # long enough so datastores await doesn't get interrupted
             cert_reqs=ssl.CERT_REQUIRED,
             ca_certs=TRUSTED_CERT_FILE,
             ssl_version=ssl.PROTOCOL_TLSv1,
         )
 
-    def request(self, method, url, post_params=None, body=None, headers=None, raw_response=False):
+    def request(
+            self,
+            method,
+            url,
+            post_params=None,
+            body=None,
+            headers=None,
+            raw_response=False):
         """Performs a REST request. See :meth:`RESTClient.request()` for detailed description."""
 
         post_params = post_params or {}
@@ -191,7 +207,8 @@ class RESTClientObject(object):
 
         if post_params:
             if body:
-                raise ValueError("body parameter cannot be used with post_params parameter")
+                raise ValueError(
+                    "body parameter cannot be used with post_params parameter")
             body = params_to_urlencoded(post_params)
             headers["Content-type"] = "application/x-www-form-urlencoded"
 
@@ -200,11 +217,13 @@ class RESTClientObject(object):
             body = str(body.getvalue())
             headers["Content-Length"] = len(body)
 
-        # Reject any headers containing newlines; the error from the server isn't pretty.
+        # Reject any headers containing newlines; the error from the server
+        # isn't pretty.
         for key, value in headers.items():
             if isinstance(value, basestring) and '\n' in value:
-                raise ValueError("headers should not contain newlines (%s: %s)" %
-                                 (key, value))
+                raise ValueError(
+                    "headers should not contain newlines (%s: %s)" %
+                    (key, value))
 
         try:
             # Grab a connection from the pool to make the request.
@@ -217,7 +236,8 @@ class RESTClientObject(object):
                 headers=headers,
                 preload_content=False
             )
-            r = RESTResponse(r) # wrap up the urllib3 response before proceeding
+            # wrap up the urllib3 response before proceeding
+            r = RESTResponse(r)
         except socket.error as e:
             raise RESTSocketError(url, e)
         except urllib3.exceptions.SSLError as e:
@@ -242,23 +262,37 @@ class RESTClientObject(object):
         return resp
 
     def GET(self, url, headers=None, raw_response=False):
-        assert type(raw_response) == bool
-        return self.request("GET", url, headers=headers, raw_response=raw_response)
+        assert isinstance(raw_response, bool)
+        return self.request(
+            "GET",
+            url,
+            headers=headers,
+            raw_response=raw_response)
 
     def POST(self, url, params=None, headers=None, raw_response=False):
-        assert type(raw_response) == bool
+        assert isinstance(raw_response, bool)
         if params is None:
             params = {}
 
-        return self.request("POST", url,
-                            post_params=params, headers=headers, raw_response=raw_response)
+        return self.request(
+            "POST",
+            url,
+            post_params=params,
+            headers=headers,
+            raw_response=raw_response)
 
     def PUT(self, url, body, headers=None, raw_response=False):
-        assert type(raw_response) == bool
-        return self.request("PUT", url, body=body, headers=headers, raw_response=raw_response)
+        assert isinstance(raw_response, bool)
+        return self.request(
+            "PUT",
+            url,
+            body=body,
+            headers=headers,
+            raw_response=raw_response)
 
 
 class RESTClient(object):
+
     """
     A class with all static methods to perform JSON REST requests that is used internally
     by the Dropbox Client API. It provides just enough gear to make requests
@@ -322,6 +356,7 @@ class RESTClient(object):
 
 
 class RESTSocketError(socket.error):
+
     """A light wrapper for ``socket.error`` that adds some more information."""
 
     def __init__(self, host, e):
@@ -331,6 +366,7 @@ class RESTSocketError(socket.error):
 
 # Dummy class for docstrings, see doco.py.
 class _ErrorResponse__doc__(Exception):
+
     """Exception raised when :class:`DropboxClient` exeriences a problem.
 
     For example, this is raised when the server returns an unexpected
@@ -346,6 +382,7 @@ class _ErrorResponse__doc__(Exception):
 
 
 class ErrorResponse(Exception):
+
     """
     Raised by :meth:`RESTClient.request()` for requests that:
 
@@ -375,7 +412,7 @@ class ErrorResponse(Exception):
         self.reason = http_resp.reason
         self.body = body
         self.headers = http_resp.getheaders()
-        http_resp.close() # won't need this connection anymore
+        http_resp.close()  # won't need this connection anymore
 
         try:
             self.body = json_loadb(self.body)
@@ -403,7 +440,7 @@ class ErrorResponse(Exception):
 def params_to_urlencoded(params):
     """
     Returns a application/x-www-form-urlencoded 'str' representing the key/value pairs in 'params'.
-    
+
     Keys are values are str()'d before calling urllib.urlencode, with the exception of unicode
     objects which are utf8-encoded.
     """
